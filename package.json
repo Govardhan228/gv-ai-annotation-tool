@@ -1,0 +1,42 @@
+{
+  "name": "gv-ai-annotation-tool",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"vite\" \"ts-node-dev --respawn --transpile-only server/index.ts\"",
+    "dev:all": "concurrently \"vite\" \"ts-node-dev --respawn --transpile-only server/index.ts\" \"(cd server/yolo_server && uvicorn app:app --reload --port 8000)\"",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "ts-node-dev --respawn --transpile-only server/index.ts",
+    "yolo-server": "cd server/yolo_server && uvicorn app:app --reload --port 8000"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "konva": "^9.4.0",
+    "react-konva": "^18.0.0",
+    "three": "^0.160.0",
+    "zustand": "^4.4.0",
+    "uuid": "^9.0.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.1.0",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7",
+    "@types/node": "^20.5.1",
+    "ts-node-dev": "^2.0.0",
+    "concurrently": "^8.2.0",
+    "@types/express": "^4.17.21"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "vite": "^5.1.0",
+    "@types/react": "^18.2.21",
+    "@types/react-dom": "^18.2.7",
+    "@types/node": "^20.5.1"
+  }
+}
