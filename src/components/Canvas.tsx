@@ -7,6 +7,7 @@ interface CanvasProps {
   onMouseMove: (e: React.MouseEvent) => void;
   onMouseUp: (e: React.MouseEvent) => void;
   onWheel: (e: React.WheelEvent) => void;
+  onDoubleClick?: (e: React.MouseEvent) => void;
   drawFunction: (ctx: CanvasRenderingContext2D) => void;
 }
 
@@ -21,6 +22,7 @@ const Canvas = forwardRef<CanvasRef, CanvasProps>(({
   onMouseMove,
   onMouseUp,
   onWheel,
+  onDoubleClick,
   drawFunction
 }, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -48,6 +50,7 @@ const Canvas = forwardRef<CanvasRef, CanvasProps>(({
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
+        onDoubleClick={onDoubleClick}
         onWheel={onWheel}
         className="border border-gray-600 rounded cursor-crosshair bg-gray-800"
         style={{ maxWidth: '100%', height: 'auto' }}

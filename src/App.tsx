@@ -8,18 +8,21 @@ import AdvancedToolbar from './components/AdvancedToolbar';
 import PropertiesPanel from './components/PropertiesPanel';
 import ExportDialog from './components/ExportDialog';
 import KeyboardShortcuts from './components/KeyboardShortcuts';
-import { 
-  ViewMode, 
-  AnnotationTool, 
-  Annotation, 
-  Point, 
-  Project, 
+import {
+  ViewMode,
+  AnnotationTool,
+  Annotation,
+  Point,
+  Project,
   AnnotationClass,
   ClassAttribute,
   Tool,
   ExportFormat,
   AIModel,
-  Measurement
+  Measurement,
+  EditHandle,
+  KeyPointTemplate,
+  KeyPoint
 } from './types';
 
 function App() {
@@ -466,12 +469,15 @@ function App() {
       
       switch (annotation.type) {
         case 'rectangle':
+        case 'bounding-box':
           if (annotation.points.length >= 2) {
             const [p1, p2] = annotation.points;
-            const width = p2.x - p1.x;
-            const height = p2.y - p1.y;
-            ctx.fillRect(p1.x, p1.y, width, height);
-            ctx.strokeRect(p1.x, p1.y, width, height);
+            const minX = Math.min(p1.x, p2.x);
+            const minY = Math.min(p1.y, p2.y);
+            const width = Math.abs(p2.x - p1.x);
+            const height = Math.abs(p2.y - p1.y);
+            ctx.fillRect(minX, minY, width, height);
+            ctx.strokeRect(minX, minY, width, height);
           }
           break;
           
@@ -588,23 +594,29 @@ function App() {
       
       // Draw selection handles for selected annotation
       if (isSelected) {
-        if (annotation.type === 'bounding-box' && annotation.points.length >= 2) {
+        if ((annotation.type === 'bounding-box' || annotation.type === 'rectangle') && annotation.points.length >= 2) {
           const [p1, p2] = annotation.points;
+          const minX = Math.min(p1.x, p2.x);
+          const maxX = Math.max(p1.x, p2.x);
+          const minY = Math.min(p1.y, p2.y);
+          const maxY = Math.max(p1.y, p2.y);
+          const midX = (minX + maxX) / 2;
+          const midY = (minY + maxY) / 2;
           const handles = [
-            { x: p1.x, y: p1.y }, // top-left
-            { x: (p1.x + p2.x) / 2, y: p1.y }, // top-center
-            { x: p2.x, y: p1.y }, // top-right
-            { x: p2.x, y: (p1.y + p2.y) / 2 }, // middle-right
-            { x: p2.x, y: p2.y }, // bottom-right
-            { x: (p1.x + p2.x) / 2, y: p2.y }, // bottom-center
-            { x: p1.x, y: p2.y }, // bottom-left
-            { x: p1.x, y: (p1.y + p2.y) / 2 }, // middle-left
+            { x: minX, y: minY },
+            { x: midX, y: minY },
+            { x: maxX, y: minY },
+            { x: maxX, y: midY },
+            { x: maxX, y: maxY },
+            { x: midX, y: maxY },
+            { x: minX, y: maxY },
+            { x: minX, y: midY }
           ];
-          
+
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = color;
           ctx.lineWidth = 1;
-          
+
           handles.forEach(handle => {
             ctx.fillRect(handle.x - 4, handle.y - 4, 8, 8);
             ctx.strokeRect(handle.x - 4, handle.y - 4, 8, 8);
@@ -654,47 +666,41 @@ function App() {
             ctx.font = '12px Arial';
             ctx.fillText(annotation.label, centerX, centerY - 20);
           }
-        } else if ((annotation.type === 'cuboid' || annotation.type === 'cuboid-3d') && annotation.points.length >= 8) {
-          const points = annotation.points;
-          
-          // Draw front face
-          ctx.beginPath();
-          ctx.moveTo(points[0].x, points[0].y);
-          for (let i = 1; i < 4; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-          }
-          ctx.closePath();
+        } else if ((annotation.type === 'cuboid' || annotation.type === 'cuboid-3d') && annotation.points.length >= 2) {
+          const [p1, p2] = annotation.points;
+          const minX = Math.min(p1.x, p2.x);
+          const maxX = Math.max(p1.x, p2.x);
+          const minY = Math.min(p1.y, p2.y);
+          const maxY = Math.max(p1.y, p2.y);
+          const depth = Math.min(maxX - minX, maxY - minY) * 0.2;
+
           ctx.globalAlpha = annotation.fillOpacity || 0.1;
-          ctx.fill();
+          ctx.fillRect(minX, minY, maxX - minX, maxY - minY);
           ctx.globalAlpha = 1;
-          ctx.stroke();
-          
-          // Draw back face
-          ctx.beginPath();
-          ctx.moveTo(points[4].x, points[4].y);
-          for (let i = 5; i < 8; i++) {
-            ctx.lineTo(points[i].x, points[i].y);
-          }
-          ctx.closePath();
-          ctx.globalAlpha = annotation.fillOpacity || 0.05;
-          ctx.fill();
-          ctx.globalAlpha = 0.7;
-          ctx.stroke();
-          
-          // Draw connecting lines
-          ctx.globalAlpha = 0.7;
+          ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+
+          ctx.globalAlpha = 0.5;
+          ctx.strokeRect(minX + depth, minY - depth, maxX - minX, maxY - minY);
+
           for (let i = 0; i < 4; i++) {
+            const corners = [
+              { x: minX, y: minY },
+              { x: maxX, y: minY },
+              { x: maxX, y: maxY },
+              { x: minX, y: maxY }
+            ];
+            const corner = corners[i];
             ctx.beginPath();
-            ctx.moveTo(points[i].x, points[i].y);
-            ctx.lineTo(points[i + 4].x, points[i + 4].y);
+            ctx.moveTo(corner.x, corner.y);
+            ctx.lineTo(corner.x + depth, corner.y - depth);
             ctx.stroke();
           }
-          
+
           if (annotation.label) {
             ctx.globalAlpha = 1;
             ctx.fillStyle = annotation.color || '#3b82f6';
             ctx.font = '12px Arial';
-            ctx.fillText(annotation.label, points[0].x, points[0].y - 5);
+            ctx.fillText(annotation.label, minX, minY - 5);
           }
         }
       }
@@ -749,9 +755,11 @@ function App() {
         case 'bounding-box':
           if (currentPoints.length >= 2) {
             const [p1, p2] = currentPoints;
-            const width = p2.x - p1.x;
-            const height = p2.y - p1.y;
-            ctx.strokeRect(p1.x, p1.y, width, height);
+            const minX = Math.min(p1.x, p2.x);
+            const minY = Math.min(p1.y, p2.y);
+            const width = Math.abs(p2.x - p1.x);
+            const height = Math.abs(p2.y - p1.y);
+            ctx.strokeRect(minX, minY, width, height);
           }
           break;
           
@@ -759,14 +767,15 @@ function App() {
         case 'cuboid-3d':
           if (currentPoints.length >= 2) {
             const [p1, p2] = currentPoints;
-            const width = p2.x - p1.x;
-            const height = p2.y - p1.y;
-            ctx.strokeRect(p1.x, p1.y, width, height);
-            
-            // Show 3D preview
-            const depth = Math.min(Math.abs(width), Math.abs(height)) * 0.3;
+            const minX = Math.min(p1.x, p2.x);
+            const minY = Math.min(p1.y, p2.y);
+            const width = Math.abs(p2.x - p1.x);
+            const height = Math.abs(p2.y - p1.y);
+            ctx.strokeRect(minX, minY, width, height);
+
+            const depth = Math.min(width, height) * 0.3;
             ctx.globalAlpha = 0.5;
-            ctx.strokeRect(p1.x + depth, p1.y - depth, width, height);
+            ctx.strokeRect(minX + depth, minY - depth, width, height);
             ctx.globalAlpha = 1;
           }
           break;
@@ -804,14 +813,27 @@ function App() {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale - offset.x;
     const y = (e.clientY - rect.top) / scale - offset.y;
-    
+
     if (snapToGrid) {
       const snappedX = Math.round(x / gridSize) * gridSize;
       const snappedY = Math.round(y / gridSize) * gridSize;
     }
-    
+
     const point = { x, y };
-    
+
+    if (selectedAnnotation && editHandles.length > 0) {
+      const tolerance = 8;
+      const draggedHandle = editHandles.find(h => {
+        const dist = Math.sqrt(Math.pow(h.x - x, 2) + Math.pow(h.y - y, 2));
+        return dist <= tolerance;
+      });
+
+      if (draggedHandle) {
+        setDragHandle(draggedHandle.id);
+        return;
+      }
+    }
+
     switch (tool) {
       case 'select':
         // Find clicked annotation
@@ -820,10 +842,14 @@ function App() {
           
           switch (ann.type) {
             case 'rectangle':
+            case 'bounding-box':
               if (ann.points.length >= 2) {
                 const [p1, p2] = ann.points;
-                return x >= Math.min(p1.x, p2.x) && x <= Math.max(p1.x, p2.x) &&
-                       y >= Math.min(p1.y, p2.y) && y <= Math.max(p1.y, p2.y);
+                const minX = Math.min(p1.x, p2.x);
+                const maxX = Math.max(p1.x, p2.x);
+                const minY = Math.min(p1.y, p2.y);
+                const maxY = Math.max(p1.y, p2.y);
+                return x >= minX && x <= maxX && y >= minY && y <= maxY;
               }
               break;
             case 'circle':
@@ -843,7 +869,13 @@ function App() {
           return false;
         });
         
-        setSelectedAnnotation(clickedAnnotation?.id || null);
+        if (clickedAnnotation) {
+          setSelectedAnnotation(clickedAnnotation.id);
+          setEditHandles(getEditHandles(clickedAnnotation));
+        } else {
+          setSelectedAnnotation(null);
+          setEditHandles([]);
+        }
         break;
         
       case 'rectangle':
@@ -890,12 +922,49 @@ function App() {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / scale - offset.x;
     const y = (e.clientY - rect.top) / scale - offset.y;
-    
+
     setMousePos({ x, y });
-    
+
+    if (dragHandle && selectedAnnotation) {
+      const annotation = annotations.find(ann => ann.id === selectedAnnotation);
+      if (annotation) {
+        let newPoints = [...annotation.points];
+
+        if (dragHandle === 'tl' && newPoints.length >= 2) {
+          newPoints[0] = { x, y };
+        } else if (dragHandle === 'tr' && newPoints.length >= 2) {
+          newPoints[0] = { x: newPoints[0].x, y };
+          newPoints[1] = { x, y: newPoints[1].y };
+        } else if (dragHandle === 'bl' && newPoints.length >= 2) {
+          newPoints[0] = { x, y: newPoints[0].y };
+          newPoints[1] = { x: newPoints[1].x, y };
+        } else if (dragHandle === 'br' && newPoints.length >= 2) {
+          newPoints[1] = { x, y };
+        } else if (dragHandle === 'tm' && newPoints.length >= 2) {
+          newPoints[0] = { x: newPoints[0].x, y };
+        } else if (dragHandle === 'bm' && newPoints.length >= 2) {
+          newPoints[1] = { x: newPoints[1].x, y };
+        } else if (dragHandle === 'ml' && newPoints.length >= 2) {
+          newPoints[0] = { x, y: newPoints[0].y };
+        } else if (dragHandle === 'mr' && newPoints.length >= 2) {
+          newPoints[1] = { x, y: newPoints[1].y };
+        } else if (dragHandle.startsWith('point-') && annotation.type === 'polygon') {
+          const idx = parseInt(dragHandle.split('-')[1]);
+          if (idx >= 0 && idx < newPoints.length) {
+            newPoints[idx] = { x, y };
+          }
+        } else if (dragHandle === 'edge' && annotation.type === 'circle') {
+          newPoints[1] = { x, y };
+        }
+
+        updateAnnotation(selectedAnnotation, { points: newPoints });
+      }
+      return;
+    }
+
     if (isDrawing && currentPoints.length > 0) {
       const point = { x, y };
-      
+
       switch (tool) {
         case 'rectangle':
         case 'circle':
@@ -907,15 +976,26 @@ function App() {
         case 'cuboid-3d':
           setCurrentPoints([currentPoints[0], point]);
           break;
-          
+
         case 'freehand':
           setCurrentPoints(prev => [...prev, point]);
           break;
       }
     }
-  }, [scale, offset, isDrawing, currentPoints, tool]);
+  }, [scale, offset, isDrawing, currentPoints, tool, dragHandle, selectedAnnotation, annotations, updateAnnotation]);
 
   const handleMouseUp = useCallback(() => {
+    if (dragHandle) {
+      setDragHandle(null);
+      if (selectedAnnotation) {
+        const annotation = annotations.find(ann => ann.id === selectedAnnotation);
+        if (annotation) {
+          setEditHandles(getEditHandles(annotation));
+        }
+      }
+      return;
+    }
+
     if (isDrawing && currentPoints.length >= 2) {
       switch (tool) {
         case 'rectangle':
@@ -933,7 +1013,7 @@ function App() {
           break;
       }
     }
-  }, [isDrawing, currentPoints, tool]);
+  }, [isDrawing, currentPoints, tool, dragHandle, selectedAnnotation, annotations]);
 
   const handleDoubleClick = useCallback(() => {
     if (isDrawing && (tool === 'polygon' || tool === 'polyline') && currentPoints.length >= 2) {
@@ -979,9 +1059,64 @@ function App() {
     setSelectedAnnotation(newAnnotation.id);
   }, [tool, selectedClass, annotations, annotationClasses, addToHistory]);
 
+  const getEditHandles = (annotation: Annotation): EditHandle[] => {
+    const handles: EditHandle[] = [];
+
+    if (annotation.type === 'bounding-box' || annotation.type === 'rectangle') {
+      if (annotation.points.length >= 2) {
+        const [p1, p2] = annotation.points;
+        const minX = Math.min(p1.x, p2.x);
+        const maxX = Math.max(p1.x, p2.x);
+        const minY = Math.min(p1.y, p2.y);
+        const maxY = Math.max(p1.y, p2.y);
+        const midX = (minX + maxX) / 2;
+        const midY = (minY + maxY) / 2;
+
+        handles.push(
+          { id: 'tl', x: minX, y: minY, type: 'corner', cursor: 'nwse-resize' },
+          { id: 'tm', x: midX, y: minY, type: 'edge', cursor: 'ns-resize' },
+          { id: 'tr', x: maxX, y: minY, type: 'corner', cursor: 'nesw-resize' },
+          { id: 'mr', x: maxX, y: midY, type: 'edge', cursor: 'ew-resize' },
+          { id: 'br', x: maxX, y: maxY, type: 'corner', cursor: 'nwse-resize' },
+          { id: 'bm', x: midX, y: maxY, type: 'edge', cursor: 'ns-resize' },
+          { id: 'bl', x: minX, y: maxY, type: 'corner', cursor: 'nesw-resize' },
+          { id: 'ml', x: minX, y: midY, type: 'edge', cursor: 'ew-resize' }
+        );
+      }
+    } else if (annotation.type === 'circle') {
+      if (annotation.points.length >= 2) {
+        const [center, edge] = annotation.points;
+        handles.push(
+          { id: 'center', x: center.x, y: center.y, type: 'move', cursor: 'move' },
+          { id: 'edge', x: edge.x, y: edge.y, type: 'radius', cursor: 'pointer' }
+        );
+      }
+    } else if (annotation.type === 'polygon' || annotation.type === 'polyline') {
+      annotation.points.forEach((point, idx) => {
+        handles.push({
+          id: `point-${idx}`,
+          x: point.x,
+          y: point.y,
+          type: 'point',
+          cursor: 'pointer'
+        });
+      });
+    } else if (annotation.type === 'line' || annotation.type === 'arrow') {
+      if (annotation.points.length >= 2) {
+        const [p1, p2] = annotation.points;
+        handles.push(
+          { id: 'start', x: p1.x, y: p1.y, type: 'point', cursor: 'pointer' },
+          { id: 'end', x: p2.x, y: p2.y, type: 'point', cursor: 'pointer' }
+        );
+      }
+    }
+
+    return handles;
+  };
+
   // Annotation management functions
   const updateAnnotation = useCallback((id: string, updates: Partial<Annotation>) => {
-    const newAnnotations = annotations.map(ann => 
+    const newAnnotations = annotations.map(ann =>
       ann.id === id ? { ...ann, ...updates, updatedAt: new Date() } : ann
     );
     setAnnotations(newAnnotations);
