@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Download Professional Annotation Tool</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+            max-width: 600px;
+            margin: 20px;
+        }
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: white;
+            font-size: 32px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 18px 36px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+        }
+        .download-btn:active {
+            transform: translateY(-1px);
+        }
+        .file-info {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .file-info h3 {
+            color: #333;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+        }
+        .file-info ul {
+            color: #666;
+            line-height: 1.8;
+            margin: 0;
+            padding-left: 20px;
+        }
+        .file-info li {
+            margin-bottom: 8px;
+        }
+        .status {
+            background: #e8f5e8;
+            color: #2d5a2d;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+        .instructions {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-align: left;
+        }
+        .instructions h4 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .instructions ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📦</div>
+        <h1>GV.AI Professional Annotation Tool</h1>
+        <p class="subtitle">Complete project package with dashboard, projects management, and annotation tools</p>
+        
+        <a href="./annotation-tool-complete.zip" class="download-btn" download="annotation-tool-complete.zip">
+            <span>📥</span>
+            Download Complete Project
+        </a>
+        
+        <div class="status">
+            ✅ Zip file ready for download (annotation-tool-complete.zip)
+        </div>
+        
+        <div class="file-info">
+            <h3>📋 What's Included:</h3>
+            <ul>
+                <li><strong>Complete React + TypeScript source code</strong></li>
+                <li><strong>Dashboard with Projects and Quick Tool</strong></li>
+                <li><strong>All annotation tools:</strong> Rectangle, Circle, Polygon, Polyline, Text</li>
+                <li><strong>Project management system</strong> with statistics</li>
+                <li><strong>Dark/Light mode toggle</strong></li>
+                <li><strong>Export/Import functionality</strong> (JSON format)</li>
+                <li><strong>Responsive design</strong> with Tailwind CSS</li>
+                <li><strong>Keyboard shortcuts</strong> for efficient workflow</li>
+                <li><strong>All configuration files</strong> (Vite, TypeScript, ESLint)</li>
+                <li><strong>Complete documentation</strong> (README.md)</li>
+            </ul>
+        </div>
+        
+        <div class="instructions">
+            <h4>🚀 Quick Start Instructions:</h4>
+            <ol>
+                <li>Extract the downloaded zip file</li>
+                <li>Open terminal in the project folder</li>
+                <li>Run: <code>npm install</code></li>
+                <li>Run: <code>npm run dev</code></li>
+                <li>Open browser to the provided localhost URL</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Check if file exists and show appropriate message
+        fetch('./annotation-tool-complete.zip', { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    console.log('Zip file is ready for download');
+                } else {
+                    document.querySelector('.status').innerHTML = '⚠️ Zip file is being generated...';
+                    document.querySelector('.status').style.background = '#fff3cd';
+                    document.querySelector('.status').style.color = '#856404';
+                }
+            })
+            .catch(() => {
+                document.querySelector('.status').innerHTML = '⚠️ Zip file is being generated...';
+                document.querySelector('.status').style.background = '#fff3cd';
+                document.querySelector('.status').style.color = '#856404';
+            });
+    </script>
+</body>
+</html>
