@@ -2,7 +2,7 @@ import React from 'react';
 import {
   FolderOpen, Zap, BarChart3, CheckCircle2, Clock,
   Users, TrendingUp, Target, ArrowUpRight, ArrowDownRight,
-  Layers, Box, Eye, FileImage, Tag, Cpu, Plus
+  Layers, Box, Eye, FileImage, Tag, Cpu, Plus, Upload
 } from 'lucide-react';
 import { Project } from '../types';
 
