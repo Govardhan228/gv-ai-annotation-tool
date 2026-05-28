@@ -205,14 +205,20 @@ export default function Annotation3DWorkspace({
               <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
             </div>
           }>
-            <PointCloudViewer
-              dark={dm}
-              pointCloud={pointCloud}
-              colorMode={colorMode}
-              pointSize={pointSize}
-              annotations={annotations}
-              activeView={activeView}
-            />
+            {typeof window !== 'undefined' ? (
+              <PointCloudViewer
+                dark={dm}
+                pointCloud={pointCloud}
+                colorMode={colorMode}
+                pointSize={pointSize}
+                annotations={annotations}
+                activeView={activeView}
+              />
+            ) : (
+              <div className={`w-full h-full flex items-center justify-center ${dm ? 'bg-gray-900' : 'bg-gray-100'}`}>
+                <p className={`text-sm ${dm ? 'text-gray-400' : 'text-gray-500'}`}>3D viewer requires browser environment</p>
+              </div>
+            )}
           </Suspense>
 
           {/* Camera view tabs */}

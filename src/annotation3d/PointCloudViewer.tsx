@@ -1,7 +1,8 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useMemo, useState, useEffect, Component, ReactNode } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
+import { PCDLoader } from 'three/examples/jsm/loaders/PCDLoader.js';
 import { Annotation, Point } from '../types';
 
 interface Props {
@@ -11,6 +12,34 @@ interface Props {
   pointSize: number;
   annotations: Annotation[];
   activeView: string;
+}
+
+// Error boundary for Three.js rendering failures
+class ViewerErrorBoundary extends Component<{ children: ReactNode; dark: boolean }, { hasError: boolean; error: string }> {
+  state = { hasError: false, error: '' };
+
+  static getDerivedStateFromError(err: Error) {
+    return { hasError: true, error: err.message };
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className={`w-full h-full flex items-center justify-center ${this.props.dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+          <div className="text-center p-6 max-w-sm">
+            <div className={`text-4xl mb-3 ${this.props.dark ? 'text-gray-600' : 'text-gray-300'}`}>&#9888;</div>
+            <h3 className={`font-semibold ${this.props.dark ? 'text-white' : 'text-gray-900'}`}>3D Viewer Error</h3>
+            <p className={`text-sm mt-2 ${this.props.dark ? 'text-gray-400' : 'text-gray-500'}`}>{this.state.error}</p>
+            <button onClick={() => this.setState({ hasError: false, error: '' })}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors">
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 function PointCloudMesh({ points, colors, colorMode, pointSize }: {
@@ -67,6 +96,25 @@ function PointCloudMesh({ points, colors, colorMode, pointSize }: {
   );
 }
 
+// PCD file loader component - loads .pcd files directly via Three.js PCDLoader
+function PCDFileObject({ url }: { url: string }) {
+  const [object, setObject] = useState<THREE.Points | null>(null);
+
+  useEffect(() => {
+    const loader = new PCDLoader();
+    loader.load(url, (pcd) => {
+      pcd.material = new THREE.PointsMaterial({ size: 0.05, vertexColors: true, sizeAttenuation: true });
+      setObject(pcd);
+    }, undefined, (err) => {
+      console.error('Failed to load PCD file:', err);
+    });
+    return () => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); };
+  }, [url]);
+
+  if (!object) return null;
+  return <primitive object={object} />;
+}
+
 function CuboidAnnotation({ ann }: { ann: Annotation }) {
   if (ann.points.length < 2) return null;
   const [p1, p2] = ann.points;
@@ -84,14 +132,7 @@ function CuboidAnnotation({ ann }: { ann: Annotation }) {
   );
 }
 
-function Scene({ pointCloud, colorMode, pointSize, annotations, activeView }: Props) {
-  const cameraPositions: Record<string, [number, number, number]> = {
-    front: [0, 5, 50],
-    rear: [0, 5, -50],
-    top: [0, 50, 0.1],
-    perspective: [30, 20, 30],
-  };
-
+function Scene({ pointCloud, colorMode, pointSize, annotations }: Props) {
   return (
     <>
       <OrbitControls enableDamping dampingFactor={0.1} rotateSpeed={0.5} />
@@ -108,17 +149,49 @@ function Scene({ pointCloud, colorMode, pointSize, annotations, activeView }: Pr
 }
 
 export default function PointCloudViewer(props: Props) {
+  const [webGLAvailable, setWebGLAvailable] = useState(false);
+  const [glError, setGlError] = useState('');
+
+  useEffect(() => {
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      if (gl) { setWebGLAvailable(true); }
+      else { setGlError('WebGL is not supported in this browser'); }
+    } catch (e) {
+      setGlError('WebGL initialization failed');
+    }
+  }, []);
+
+  if (glError) {
+    return (
+      <div className={`w-full h-full flex items-center justify-center ${props.dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+        <p className={`text-sm ${props.dark ? 'text-gray-400' : 'text-gray-500'}`}>{glError}</p>
+      </div>
+    );
+  }
+
+  if (!webGLAvailable) {
+    return (
+      <div className={`w-full h-full flex items-center justify-center ${props.dark ? 'bg-gray-900' : 'bg-gray-100'}`}>
+        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full h-full">
-      <Canvas
-        camera={{ position: [30, 20, 30], fov: 50, near: 0.1, far: 2000 }}
-        style={{ background: props.dark ? '#0a0a0f' : '#f0f0f0' }}
-        gl={{ antialias: true, alpha: false }}
-      >
-        <React.Suspense fallback={null}>
-          <Scene {...props} />
-        </React.Suspense>
-      </Canvas>
-    </div>
+    <ViewerErrorBoundary dark={props.dark}>
+      <div className="w-full h-full">
+        <Canvas
+          camera={{ position: [30, 20, 30], fov: 50, near: 0.1, far: 2000 }}
+          style={{ background: props.dark ? '#0a0a0f' : '#f0f0f0' }}
+          gl={{ antialias: true, alpha: false }}
+        >
+          <React.Suspense fallback={null}>
+            <Scene {...props} />
+          </React.Suspense>
+        </Canvas>
+      </div>
+    </ViewerErrorBoundary>
   );
 }
