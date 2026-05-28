@@ -1038,12 +1038,21 @@ function App() {
           )}
 
           {/* 3D Annotation */}
-          {viewMode === 'annotation-3d' && <Annotation3DWorkspace dark={dm} onBack={() => setViewMode('projects')} />}
+          {viewMode === 'annotation-3d' && (
+            <Annotation3DWorkspace dark={dm} onBack={() => setViewMode('projects')}
+              annotations={annotations.filter(a => ['3d-cuboid','cuboid-3d','point-cloud-segmentation','3d-tracking','bev-annotation','lane-annotation','sensor-fusion','point-classification'].includes(a.type))}
+              classes={annotationClasses}
+              onCreateAnnotation={(ann) => { setAnnotations(prev => [...prev, ann]); setDirty(true); }}
+              onUpdateAnnotation={updateAnnotation}
+              onDeleteAnnotation={(id) => { setAnnotations(prev => prev.filter(a => a.id !== id)); setDirty(true); }}
+            />
+          )}
 
           {/* Taxonomy */}
           {viewMode === 'taxonomy' && (
             <TaxonomyPanel dark={dm} classes={annotationClasses} onAddClass={handleAddClass} onUpdateClass={handleUpdateClass}
-              onRemoveClass={handleRemoveClass} onAddAttribute={handleAddAttribute} onRemoveAttribute={handleRemoveAttribute} />
+              onRemoveClass={handleRemoveClass} onAddAttribute={handleAddAttribute} onRemoveAttribute={handleRemoveAttribute}
+              onReorderClasses={(reordered) => setAnnotationClasses(reordered)} />
           )}
 
           {/* QA Review */}
