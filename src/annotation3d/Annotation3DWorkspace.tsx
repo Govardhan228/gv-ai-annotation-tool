@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { Box, Move, RotateCw, Maximize2, Crosshair, Radar, ScatterChart, LayoutGrid, Route, Eye, Camera, Layers, Grid3x3, ZoomIn, ZoomOut, RotateCcw, RefreshCw, Download, Settings, Upload, Sliders as Slider, MousePointer2, Pencil, Trash2, Lock, Unlock, Copy, ChevronDown } from 'lucide-react';
 import { AnnotationTool3D, TOOLS_3D, Annotation, Point, AnnotationClass } from '../types';
 
@@ -122,8 +122,28 @@ export default function Annotation3DWorkspace({
   const [cameraSync, setCameraSync] = useState<Record<string, boolean>>({ front: true, rear: false, left: false, right: false });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const animRef = useRef<number>(0);
   const rotationRef = useRef({ x: -30, y: 45, zoom: 1 });
+  const stateRef = useRef({ pointCloud: null as { points: Point[]; colors: string[] } | null, dark, colorMode: 'Height', pointSize: 2, annotations, activeView: 'perspective', showBEV: true, tool: '3d-cuboid' as AnnotationTool3D });
+  stateRef.current = { pointCloud, dark, colorMode, pointSize, annotations, activeView, showBEV, tool };
+
+  // Resize canvas to fit container
+  useEffect(() => {
+    const container = containerRef.current;
+    const canvas = canvasRef.current;
+    if (!container || !canvas) return;
+    const observer = new ResizeObserver(() => {
+      const { width, height } = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
 
   const handleFileUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -162,83 +182,71 @@ export default function Annotation3DWorkspace({
     }
   }, []);
 
-  // Render point cloud on canvas
-  const renderPointCloud = useCallback(() => {
+  // Render using stateRef for stable animation loop
+  const renderFrame = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const s = stateRef.current;
 
-    ctx.fillStyle = dark ? '#0a0a0f' : '#f0f0f0';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const dpr = window.devicePixelRatio || 1;
+    ctx.save();
+    ctx.scale(dpr, dpr);
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
 
-    if (!pointCloud || !pointCloud.points.length) return;
+    ctx.fillStyle = s.dark ? '#0a0a0f' : '#f0f0f0';
+    ctx.fillRect(0, 0, w, h);
 
-    const { points, colors } = pointCloud;
+    if (!s.pointCloud || !s.pointCloud.points.length) { ctx.restore(); return; }
+
+    const { points, colors } = s.pointCloud;
     const rot = rotationRef.current;
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-    const scale = rot.zoom * 2;
+    const cx = w / 2;
+    const cy = h / 2;
+    const sc = rot.zoom * 2;
 
-    // Compute bounds for height coloring
     let minZ = Infinity, maxZ = -Infinity;
     points.forEach(p => { if (p.z !== undefined) { minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); } });
     const zRange = maxZ - minZ || 1;
-
-    const cosX = Math.cos(rot.x * Math.PI / 180);
-    const sinX = Math.sin(rot.x * Math.PI / 180);
-    const cosY = Math.cos(rot.y * Math.PI / 180);
-    const sinY = Math.sin(rot.y * Math.PI / 180);
-
-    ctx.fillStyle = dark ? 'rgba(100,150,255,0.7)' : 'rgba(50,100,200,0.7)';
+    const cosX = Math.cos(rot.x * Math.PI / 180), sinX = Math.sin(rot.x * Math.PI / 180);
+    const cosY = Math.cos(rot.y * Math.PI / 180), sinY = Math.sin(rot.y * Math.PI / 180);
 
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
-      let x = p.x, y = p.y, z = p.z || 0;
+      const x = p.x, y = p.y, z = p.z || 0;
+      const x1 = x * cosY - z * sinY, z1 = x * sinY + z * cosY;
+      const y1 = y * cosX - z1 * sinX, z2 = y * sinX + z1 * cosX;
+      const persp = 500 / (500 + z2);
+      const sx = cx + x1 * sc * persp;
+      const sy = cy - y1 * sc * persp;
+      if (sx < -10 || sx > w + 10 || sy < -10 || sy > h + 10) continue;
 
-      // Rotate Y
-      const x1 = x * cosY - z * sinY;
-      const z1 = x * sinY + z * cosY;
-      // Rotate X
-      const y1 = y * cosX - z1 * sinX;
-      const z2 = y * sinX + z1 * cosX;
-
-      // Perspective projection
-      const perspective = 500 / (500 + z2);
-      const sx = cx + x1 * scale * perspective;
-      const sy = cy - y1 * scale * perspective;
-
-      if (sx < 0 || sx > canvas.width || sy < 0 || sy > canvas.height) continue;
-
-      if (colorMode === 'Height' && p.z !== undefined) {
+      if (s.colorMode === 'Height' && p.z !== undefined) {
         const t = (p.z - minZ) / zRange;
-        const r = Math.floor(t < 0.5 ? t * 2 * 255 : 255);
-        const g = Math.floor(t < 0.5 ? t * 2 * 255 : (1 - t) * 2 * 255);
-        const b = Math.floor(t < 0.5 ? (1 - t * 2) * 255 : 0);
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
-      } else if (colors[i] && colorMode === 'RGB') {
+        ctx.fillStyle = `rgb(${Math.floor(t < 0.5 ? t * 2 * 255 : 255)},${Math.floor(t < 0.5 ? t * 2 * 255 : (1 - t) * 2 * 255)},${Math.floor(t < 0.5 ? (1 - t * 2) * 255 : 0)})`;
+      } else if (colors[i] && s.colorMode === 'RGB') {
         ctx.fillStyle = colors[i];
-      } else if (colorMode === 'Intensity' && colors[i]) {
+      } else if (s.colorMode === 'Intensity' && colors[i]) {
         ctx.fillStyle = colors[i];
-      } else if (colorMode === 'Distance') {
-        const d = Math.sqrt(p.x * p.x + p.y * p.y + z * z);
+      } else if (s.colorMode === 'Distance') {
+        const d = Math.sqrt(x * x + y * y + z * z);
         const t = Math.min(1, d / 80);
         ctx.fillStyle = `rgb(${Math.floor((1 - t) * 50 + t * 255)},${Math.floor((1 - t) * 200)},${Math.floor((1 - t) * 255)})`;
+      } else {
+        ctx.fillStyle = s.dark ? 'rgba(100,150,255,0.7)' : 'rgba(50,100,200,0.7)';
       }
 
-      const size = pointSize * perspective;
-      if (size > 1.5) {
-        ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
-      } else {
-        ctx.fillRect(sx, sy, 1, 1);
-      }
+      const size = s.pointSize * persp;
+      if (size > 1.5) ctx.fillRect(sx - size / 2, sy - size / 2, size, size);
+      else ctx.fillRect(sx, sy, 1, 1);
     }
 
     // Draw cuboid annotations
-    annotations.forEach(ann => {
+    s.annotations.forEach(ann => {
       if (!ann.visible || ann.points.length < 2) return;
       const [p1, p2] = ann.points;
-      // Project corners
       const corners = [
         { x: Math.min(p1.x, p2.x), y: Math.min(p1.y, p2.y), z: p1.z || 0 },
         { x: Math.max(p1.x, p2.x), y: Math.min(p1.y, p2.y), z: p1.z || 0 },
@@ -249,48 +257,46 @@ export default function Annotation3DWorkspace({
       ctx.lineWidth = 2;
       ctx.beginPath();
       corners.forEach((c, i) => {
-        const x1 = c.x * cosY - c.z * sinY;
-        const z1 = c.x * sinY + c.z * cosY;
-        const y1 = c.y * cosX - z1 * sinX;
-        const z2 = c.y * sinX + z1 * cosX;
-        const perspective = 500 / (500 + z2);
-        const sx = cx + x1 * scale * perspective;
-        const sy = cy - y1 * scale * perspective;
+        const x1 = c.x * cosY - c.z * sinY, z1 = c.x * sinY + c.z * cosY;
+        const y1 = c.y * cosX - z1 * sinX, z2 = c.y * sinX + z1 * cosX;
+        const persp = 500 / (500 + z2);
+        const sx = cx + x1 * sc * persp, sy = cy - y1 * sc * persp;
         if (i === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
       });
       ctx.closePath();
       ctx.stroke();
+
+      // Label
+      ctx.fillStyle = ann.color || '#3b82f6';
+      ctx.font = 'bold 11px Arial';
+      const midX = corners.reduce((s, c) => s + c.x, 0) / 4;
+      const midY = corners.reduce((s, c) => s + c.y, 0) / 4;
+      const midZ = corners.reduce((s, c) => s + c.z, 0) / 4;
+      const x1 = midX * cosY - midZ * sinY, z1 = midX * sinY + midZ * cosY;
+      const y1 = midY * cosX - z1 * sinX, z2 = midY * sinX + z1 * cosX;
+      const persp = 500 / (500 + z2);
+      const lsx = cx + x1 * sc * persp, lsy = cy - y1 * sc * persp;
+      const tw = ctx.measureText(ann.label).width;
+      ctx.fillStyle = 'rgba(0,0,0,0.6)';
+      ctx.fillRect(lsx - 2, lsy - 14, tw + 6, 16);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(ann.label, lsx + 1, lsy - 2);
     });
 
-    // Draw cuboid being drawn
-    if (isDrawingCuboid && cuboidStart && tool === '3d-cuboid') {
-      // Preview cuboid at mouse position
-    }
+    ctx.restore();
+  }, []);
 
-    // Grid lines
-    if (activeView === 'top' || showBEV) {
-      ctx.strokeStyle = dark ? 'rgba(100,100,100,0.3)' : 'rgba(200,200,200,0.5)';
-      ctx.lineWidth = 0.5;
-      for (let i = -50; i <= 50; i += 10) {
-        const x1 = i * cosY * scale;
-        const z1 = i * sinY * scale;
-        ctx.beginPath();
-        ctx.moveTo(cx + x1 - 500 * sinY * scale, cy - (-50 * cosX - z1 * sinX) * scale);
-        ctx.lineTo(cx + x1 + 500 * sinY * scale, cy - (-50 * cosX + z1 * sinX) * scale);
-        ctx.stroke();
-      }
-    }
-  }, [pointCloud, dark, colorMode, pointSize, annotations, isDrawingCuboid, cuboidStart, tool, activeView, showBEV]);
-
-  // Animation loop
+  // Animation loop - stable, only starts once
   useEffect(() => {
+    let running = true;
     const animate = () => {
-      renderPointCloud();
+      if (!running) return;
+      renderFrame();
       animRef.current = requestAnimationFrame(animate);
     };
     animRef.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animRef.current);
-  }, [renderPointCloud]);
+    return () => { running = false; cancelAnimationFrame(animRef.current); };
+  }, [renderFrame]);
 
   // Mouse interaction for rotation
   const isDragging = useRef(false);
@@ -415,12 +421,10 @@ export default function Annotation3DWorkspace({
         </div>
 
         {/* Viewer area */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={containerRef}>
           <canvas
             ref={canvasRef}
-            width={800}
-            height={600}
-            className="w-full h-full"
+            className="absolute inset-0 w-full h-full"
             onMouseDown={handleCanvasMouseDown}
             onMouseMove={handleCanvasMouseMove}
             onMouseUp={handleCanvasMouseUp}
