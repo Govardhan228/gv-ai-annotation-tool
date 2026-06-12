@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, Box, LayoutGrid, Shield, Tag,
   Layers, MousePointer2, Square, Pentagon, Circle, CircleDot,
   MapPin, Minus, MoveRight, Pencil, Type, Ruler, Hand, Wand2,
-  Sparkles, GitBranch, Crosshair, Route, ScatterChart
+  Sparkles, GitBranch, Crosshair, Route, ScatterChart, Film
 } from 'lucide-react';
 import Canvas, { CanvasRef } from './components/Canvas';
 import StatusBar from './components/StatusBar';
@@ -20,6 +20,7 @@ import ProjectCreationModal from './dashboard/ProjectCreationModal';
 import TaxonomyPanel from './taxonomy/TaxonomyPanel';
 import QAReviewPanel from './qa/QAReviewPanel';
 import Annotation3DWorkspace from './annotation3d/Annotation3DWorkspace';
+import VideoAnnotationWorkspace from './video/VideoAnnotationWorkspace';
 import {
   ViewMode, AnnotationTool, Annotation, Point, Project,
   AnnotationClass, ClassAttribute, EditHandle, KeyPoint,
@@ -137,6 +138,7 @@ function App() {
     { id: 'projects', label: 'Projects', icon: FolderOpen },
     { id: 'annotation-2d', label: '2D Annotate', icon: MousePointer2 },
     { id: 'annotation-3d', label: '3D Annotate', icon: Box },
+    { id: 'video', label: 'Video Annotate', icon: Film },
     { id: 'taxonomy', label: 'Taxonomy', icon: Tag },
     { id: 'tasks', label: 'Tasks', icon: Zap },
     { id: 'qa', label: 'QA Review', icon: Shield },
@@ -1041,6 +1043,16 @@ function App() {
           {viewMode === 'annotation-3d' && (
             <Annotation3DWorkspace dark={dm} onBack={() => setViewMode('projects')}
               annotations={annotations.filter(a => ['3d-cuboid','cuboid-3d','point-cloud-segmentation','3d-tracking','bev-annotation','lane-annotation','sensor-fusion','point-classification'].includes(a.type))}
+              classes={annotationClasses}
+              onCreateAnnotation={(ann) => { setAnnotations(prev => [...prev, ann]); setDirty(true); }}
+              onUpdateAnnotation={updateAnnotation}
+              onDeleteAnnotation={(id) => { setAnnotations(prev => prev.filter(a => a.id !== id)); setDirty(true); }}
+            />
+          )}
+
+          {/* Video Annotation */}
+          {viewMode === 'video' && (
+            <VideoAnnotationWorkspace dark={dm} onBack={() => setViewMode('projects')}
               classes={annotationClasses}
               onCreateAnnotation={(ann) => { setAnnotations(prev => [...prev, ann]); setDirty(true); }}
               onUpdateAnnotation={updateAnnotation}

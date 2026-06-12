@@ -130,7 +130,7 @@ export interface Measurement {
   label?: string;
 }
 
-export type ViewMode = 'dashboard' | 'projects' | 'annotation-2d' | 'annotation-3d' | 'taxonomy' | 'analytics' | 'tasks' | 'qa' | 'team' | 'settings' | 'ai-models';
+export type ViewMode = 'dashboard' | 'projects' | 'annotation-2d' | 'annotation-3d' | 'video' | 'taxonomy' | 'analytics' | 'tasks' | 'qa' | 'team' | 'settings' | 'ai-models';
 
 export type AnnotationTool2D = 'select' | 'bounding-box' | 'polygon' | 'polyline' | 'keypoints' | 'cuboid' | 'circle' | 'ellipse' | 'text' | 'point' | 'line' | 'arrow' | 'freehand' | 'curve' | 'measurement' | 'segmentation' | 'zoom' | 'pan' | 'magic-wand' | 'auto-segment';
 export type AnnotationTool3D = '3d-cuboid' | '3d-translate' | '3d-rotate' | '3d-scale' | 'point-selection' | 'ground-plane' | 'auto-track' | 'point-cloud-segmentation' | 'bev-annotation' | 'lane-annotation';
