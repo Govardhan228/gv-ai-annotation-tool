@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   Upload, Play, Pause, SkipBack, SkipForward, ChevronLeft,
   Volume2, VolumeX, Maximize, RotateCcw, ZoomIn, ZoomOut,
-  MousePointer2, Square, Pentagon, Circle, Minus, Pencil,
+  MousePointer2, Square, Pentagon, Circle, Minus, Pencil, MapPin,
   Type, Tag, Layers, Save, Undo, Redo, Trash2, Eye, EyeOff,
   Lock, Unlock, Grid2x2, Settings2, Film, FastForward, Rewind,
   Image, Scissors, Copy
@@ -37,7 +37,7 @@ const VIDEO_TOOLS: { id: VideoTool; name: string; icon: string; hotkey: string }
 ];
 
 const ICON_MAP: Record<string, React.FC<any>> = {
-  MousePointer2, Square, Pentagon, Circle, Minus, Pencil, Type, MapPin,
+  MousePointer2, Square, Pentagon, Circle, Minus, Pencil, Type, MapPin, Film,
 };
 
 const PLAYBACK_SPEEDS = [0.25, 0.5, 1, 1.5, 2, 4];
