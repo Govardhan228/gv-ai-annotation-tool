@@ -293,7 +293,7 @@ export default function PublicSite({ onAuth, onEnterPlatform }: Props) {
                     <p className={`text-xs ${dm ? 'text-slate-500' : 'text-slate-400'}`}>{story.industry}</p>
                   </div>
                 </div>
-                <p className={`text-sm leading-relaxed mb-4 ${dm ? 'text-slate-300' : 'text-slate-600'}`>"{story.quote}"</p>
+                <p className={`text-sm leading-relaxed mb-4 ${dm ? 'text-slate-300' : 'text-slate-600'}`}>"{story.quote}"</p>
                 <div className="flex items-center justify-between">
                   <span className={`text-xs ${dm ? 'text-slate-500' : 'text-slate-400'}`}>{story.author}</span>
                   <span className={`px-2 py-1 rounded-lg text-xs font-bold ${dm ? 'bg-emerald-500/15 text-emerald-400' : 'bg-emerald-50 text-emerald-700'}`}>{story.metric}</span>
