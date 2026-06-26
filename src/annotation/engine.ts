@@ -1,16 +1,23 @@
-// Core annotation types and utilities for the GV.AI annotation engine
+// Core annotation engine for GV.AI
 
 export type ToolType =
   | 'select'
   | 'bounding-box'
+  | 'rotated-box'
   | 'polygon'
   | 'polyline'
   | 'point'
-  | 'keypoint'
   | 'brush'
-  | 'eraser';
+  | 'eraser'
+  | 'ruler'
+  | 'magic-wand'
+  | 'smart-polygon'
+  | 'keypoint'
+  | 'magnetic-polygon'
+  | 'sem-seg'
+  | 'instance-seg';
 
-export type ShapeType = 'bbox' | 'polygon' | 'polyline' | 'point' | 'mask';
+export type ShapeType = 'bbox' | 'polygon' | 'polyline' | 'point' | 'mask' | 'ruler' | 'rotated-box';
 
 export interface Point {
   x: number;
@@ -29,26 +36,29 @@ export interface BoundingBox {
   height: number;
 }
 
+export interface RotatedBox {
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  angle: number; // radians
+}
+
 export interface AnnotationShape {
   id: string;
   type: ShapeType;
   label: string;
   color: string;
-  // Bounding box fields
   bbox?: BoundingBox;
-  // Polygon / polyline / mask fields
+  rotatedBox?: RotatedBox;
   points?: Vertex[];
-  // Point annotation
   point?: Point;
-  // Keypoints
   keypoints?: { name: string; point: Point }[];
-  // Track info for video
   trackId?: string;
   frameIndex?: number;
-  // Visibility
   visible: boolean;
   locked: boolean;
-  // Metadata
+  groupId?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -57,25 +67,28 @@ export interface ViewTransform {
   scale: number;
   offsetX: number;
   offsetY: number;
+  rotation: number;
 }
 
-export const DEFAULT_TRANSFORM: ViewTransform = { scale: 1, offsetX: 0, offsetY: 0 };
+export const DEFAULT_TRANSFORM: ViewTransform = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  rotation: 0,
+};
 
-// Generate unique IDs
 let idCounter = 0;
 export function genId(): string {
   idCounter++;
   return `ann-${Date.now()}-${idCounter}`;
 }
 
-// Generate track IDs
 let trackCounter = 0;
 export function nextTrackId(): string {
   trackCounter++;
   return `TRK-${String(trackCounter).padStart(4, '0')}`;
 }
 
-// Convert screen coordinates to canvas/image coordinates
 export function screenToImage(
   screenX: number,
   screenY: number,
@@ -87,7 +100,6 @@ export function screenToImage(
   };
 }
 
-// Convert image coordinates to screen coordinates
 export function imageToScreen(
   imgX: number,
   imgY: number,
@@ -99,7 +111,6 @@ export function imageToScreen(
   };
 }
 
-// Point in bounds check
 export function pointInBBox(p: Point, bbox: BoundingBox): boolean {
   return (
     p.x >= bbox.x &&
@@ -109,7 +120,6 @@ export function pointInBBox(p: Point, bbox: BoundingBox): boolean {
   );
 }
 
-// Calculate bounding box from polygon points
 export function pointsToBBox(points: Vertex[]): BoundingBox {
   if (points.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
   const xs = points.map((p) => p.x);
@@ -118,20 +128,13 @@ export function pointsToBBox(points: Vertex[]): BoundingBox {
   const minY = Math.min(...ys);
   const maxX = Math.max(...xs);
   const maxY = Math.max(...ys);
-  return {
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY,
-  };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
-// Distance from point to point
 export function distance(a: Point, b: Point): number {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);
 }
 
-// Distance from point to line segment
 export function distanceToSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -143,7 +146,6 @@ export function distanceToSegment(p: Point, a: Point, b: Point): number {
   return distance(p, proj);
 }
 
-// Point in polygon (ray casting)
 export function pointInPolygon(p: Point, polygon: Vertex[]): boolean {
   if (polygon.length < 3) return false;
   let inside = false;
@@ -160,11 +162,7 @@ export function pointInPolygon(p: Point, polygon: Vertex[]): boolean {
   return inside;
 }
 
-// Resize handle positions for a bounding box
-export type HandleId =
-  | 'nw' | 'n' | 'ne'
-  | 'w' | 'e'
-  | 'sw' | 's' | 'se';
+export type HandleId = 'nw' | 'n' | 'ne' | 'w' | 'e' | 'sw' | 's' | 'se';
 
 export interface Handle {
   id: HandleId;
@@ -187,11 +185,7 @@ export function getHandles(bbox: BoundingBox): Handle[] {
   ];
 }
 
-export function getHandleAt(
-  point: Point,
-  bbox: BoundingBox,
-  threshold: number = 8
-): Handle | null {
+export function getHandleAt(point: Point, bbox: BoundingBox, threshold: number = 8): Handle | null {
   const handles = getHandles(bbox);
   for (const h of handles) {
     if (distance(point, { x: h.x, y: h.y }) <= threshold) {
@@ -201,7 +195,6 @@ export function getHandleAt(
   return null;
 }
 
-// Resize bounding box given a handle and delta
 export function resizeBBox(
   bbox: BoundingBox,
   handle: HandleId,
@@ -229,7 +222,6 @@ export function resizeBBox(
   return { x, y, width, height };
 }
 
-// Check if vertex is near a point (for polygon editing)
 export function getVertexAt(point: Point, vertices: Vertex[], threshold: number = 8): number {
   for (let i = 0; i < vertices.length; i++) {
     if (distance(point, vertices[i]) <= threshold) {
@@ -239,7 +231,6 @@ export function getVertexAt(point: Point, vertices: Vertex[], threshold: number 
   return -1;
 }
 
-// Check if point is near an edge of a polygon (for inserting vertices)
 export function getEdgeAt(point: Point, vertices: Vertex[], threshold: number = 6): number {
   for (let i = 0; i < vertices.length; i++) {
     const a = vertices[i];
@@ -251,22 +242,14 @@ export function getEdgeAt(point: Point, vertices: Vertex[], threshold: number = 
   return -1;
 }
 
-// Hit test: what shape is under the cursor?
 export interface HitResult {
   shapeId: string;
-  type: 'body' | 'handle' | 'vertex' | 'edge';
+  type: 'body' | 'handle' | 'vertex';
   handleId?: HandleId;
   vertexIndex?: number;
-  edgeIndex?: number;
 }
 
-export function hitTest(
-  point: Point,
-  shapes: AnnotationShape[],
-  threshold: number = 8
-): HitResult | null {
-  // Check handles and vertices of selected shape first (handled separately)
-  // Then check shape bodies top to bottom
+export function hitTest(point: Point, shapes: AnnotationShape[], threshold: number = 8): HitResult | null {
   for (let i = shapes.length - 1; i >= 0; i--) {
     const s = shapes[i];
     if (!s.visible || s.locked) continue;
@@ -275,14 +258,20 @@ export function hitTest(
       if (pointInBBox(point, s.bbox)) {
         return { shapeId: s.id, type: 'body' };
       }
-    } else if ((s.type === 'polygon' || s.type === 'polyline' || s.type === 'mask') && s.points) {
+    } else if ((s.type === 'polygon' || s.type === 'mask') && s.points) {
       if (s.type === 'polygon' && pointInPolygon(point, s.points)) {
         return { shapeId: s.id, type: 'body' };
       }
-      // Check edges for polyline
+      // Check edges
       for (let j = 0; j < s.points.length; j++) {
-        const next = j < s.points.length - 1 ? s.points[j + 1] : s.points[0];
-        if (distanceToSegment(point, s.points[j], next) <= threshold) {
+        const next = (j + 1) % s.points.length;
+        if (distanceToSegment(point, s.points[j], s.points[next]) <= threshold) {
+          return { shapeId: s.id, type: 'body' };
+        }
+      }
+    } else if (s.type === 'polyline' && s.points) {
+      for (let j = 0; j < s.points.length - 1; j++) {
+        if (distanceToSegment(point, s.points[j], s.points[j + 1]) <= threshold) {
           return { shapeId: s.id, type: 'body' };
         }
       }
@@ -290,7 +279,46 @@ export function hitTest(
       if (distance(point, s.point) <= threshold + 3) {
         return { shapeId: s.id, type: 'body' };
       }
+    } else if (s.type === 'ruler' && s.points && s.points.length >= 2) {
+      if (distanceToSegment(point, s.points[0], s.points[s.points.length - 1]) <= threshold) {
+        return { shapeId: s.id, type: 'body' };
+      }
+    } else if (s.type === 'rotated-box' && s.rotatedBox) {
+      const rb = s.rotatedBox;
+      const cos = Math.cos(rb.angle);
+      const sin = Math.sin(rb.angle);
+      const dx = point.x - rb.cx;
+      const dy = point.y - rb.cy;
+      const rx = dx * cos + dy * sin;
+      const ry = -dx * sin + dy * cos;
+      if (Math.abs(rx) <= rb.width / 2 && Math.abs(ry) <= rb.height / 2) {
+        return { shapeId: s.id, type: 'body' };
+      }
     }
   }
   return null;
+}
+
+export function fitTransform(
+  imgWidth: number,
+  imgHeight: number,
+  canvasWidth: number,
+  canvasHeight: number,
+  padding: number = 20
+): ViewTransform {
+  if (imgWidth === 0 || imgHeight === 0) return DEFAULT_TRANSFORM;
+  const scale = Math.min(
+    (canvasWidth - padding * 2) / imgWidth,
+    (canvasHeight - padding * 2) / imgHeight
+  );
+  return {
+    scale: Math.max(0.05, scale),
+    offsetX: (canvasWidth - imgWidth * scale) / 2,
+    offsetY: (canvasHeight - imgHeight * scale) / 2,
+    rotation: 0,
+  };
+}
+
+export function getTransformState(transform: ViewTransform): string {
+  return JSON.stringify(transform);
 }
