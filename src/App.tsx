@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FolderKanban, PenTool, Box, Film, Tags,
   Workflow, ShieldCheck, BarChart3, Settings, Moon, Sun,
   ChevronsLeft, ChevronsRight, Search, Bell, GitBranch,
-  Users
+  Users, LogOut
 } from 'lucide-react';
 import Dashboard from './views/DashboardView';
 import ProjectsView from './views/ProjectsView';
@@ -15,7 +15,9 @@ import AnalyticsView from './views/AnalyticsView';
 import ImportExportView from './views/ImportExportView';
 import TeamView from './views/TeamView';
 import SettingsView from './views/SettingsView';
+import AuthPage from './views/AuthPage';
 import { useAppStore } from './store/appStore';
+import { supabase } from './services/supabaseClient';
 
 export type ViewId =
   | 'dashboard' | 'projects' | 'studio' | 'taxonomy'
@@ -57,12 +59,45 @@ const NAV_GROUPS: { label: string; items: { id: ViewId; label: string; icon: Rea
 
 function App() {
   const [view, setView] = useState<ViewId>('dashboard');
-  const { darkMode, toggleDark, sidebarCollapsed, toggleSidebar, loadSeedData } = useAppStore();
+  const { darkMode, toggleDark, sidebarCollapsed, toggleSidebar, loadSeedData, user, isLoading, checkAuth, signOut } = useAppStore();
 
   useEffect(() => { loadSeedData(); }, [loadSeedData]);
+  useEffect(() => { checkAuth(); }, [checkAuth]);
+
+  // Listen for auth state changes
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const name = session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User';
+        useAppStore.setState({
+          user: { id: session.user.id, email: session.user.email!, name, avatar: name.slice(0, 2).toUpperCase() },
+          session,
+        });
+      } else {
+        useAppStore.setState({ user: null, session: null });
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const dm = darkMode;
   const sidebarW = sidebarCollapsed ? 'w-16' : 'w-60';
+
+  if (isLoading) {
+    return (
+      <div className={`h-screen flex items-center justify-center ${dm ? 'bg-slate-950' : 'bg-slate-50'}`}>
+        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthPage />;
+  }
+
+  const userName = user.name || 'Govardhan';
+  const userAvatar = user.avatar || userName.slice(0, 2).toUpperCase();
+  const userInitials = userAvatar;
 
   const ViewSwitch = () => {
     switch (view) {
@@ -112,14 +147,21 @@ function App() {
           </button>
           <div className={`w-px h-5 mx-1 ${dm ? 'bg-slate-700' : 'bg-slate-200'}`} />
           <div className="flex items-center gap-2 pl-1">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white text-xs font-semibold">
-              AC
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-semibold">
+              {userInitials}
             </div>
             <div className="text-left leading-none">
-              <p className={`text-xs font-medium ${dm ? 'text-white' : 'text-slate-900'}`}>Alice Chen</p>
-              <p className={`text-[10px] ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Lead Annotator</p>
+              <p className={`text-xs font-medium ${dm ? 'text-white' : 'text-slate-900'}`}>{userName}</p>
+              <p className={`text-[10px] ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Owner</p>
             </div>
           </div>
+          <button
+            onClick={signOut}
+            className={`p-1.5 rounded-md transition-colors ml-1 ${dm ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}
+            title="Log out"
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </header>
 
