@@ -3,7 +3,7 @@ import {
   LayoutDashboard, FolderKanban, PenTool, Box, Film, Tags,
   Workflow, ShieldCheck, BarChart3, Settings, Moon, Sun,
   ChevronsLeft, ChevronsRight, Search, Bell, GitBranch,
-  Users, LogOut
+  Users, LogOut, Zap, Car
 } from 'lucide-react';
 import Dashboard from './views/DashboardView';
 import ProjectsView from './views/ProjectsView';
@@ -29,14 +29,14 @@ const NAV_GROUPS: { label: string; items: { id: ViewId; label: string; icon: Rea
     label: 'Overview',
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'projects', label: 'Projects', icon: FolderKanban },
+      { id: 'projects', label: 'Datasets', icon: FolderKanban },
     ],
   },
   {
     label: 'Annotation',
     items: [
       { id: 'studio', label: 'Annotation Studio', icon: PenTool },
-      { id: 'taxonomy', label: 'Taxonomy', icon: Tags },
+      { id: 'taxonomy', label: 'Object Taxonomy', icon: Tags },
     ],
   },
   {
@@ -66,15 +66,17 @@ function App() {
 
   // Listen for auth state changes
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed:', event);
       if (session?.user) {
         const name = session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'User';
         useAppStore.setState({
           user: { id: session.user.id, email: session.user.email!, name, avatar: name.slice(0, 2).toUpperCase() },
           session,
+          isLoading: false,
         });
       } else {
-        useAppStore.setState({ user: null, session: null });
+        useAppStore.setState({ user: null, session: null, isLoading: false });
       }
     });
     return () => subscription.unsubscribe();
@@ -85,8 +87,12 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className={`h-screen flex items-center justify-center ${dm ? 'bg-slate-950' : 'bg-slate-50'}`}>
-        <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+      <div className={`h-screen flex flex-col items-center justify-center gap-4 ${dm ? 'bg-slate-950' : 'bg-slate-50'}`}>
+        <div className="relative">
+          <div className="w-12 h-12 border-3 border-blue-500/20 rounded-full" />
+          <div className="absolute inset-0 w-12 h-12 border-3 border-transparent border-t-blue-500 rounded-full animate-spin" />
+        </div>
+        <div className={`text-sm font-medium ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Loading workspace...</div>
       </div>
     );
   }
@@ -95,7 +101,7 @@ function App() {
     return <AuthPage />;
   }
 
-  const userName = user.name || 'Govardhan';
+  const userName = user.name || 'User';
   const userAvatar = user.avatar || userName.slice(0, 2).toUpperCase();
   const userInitials = userAvatar;
 
@@ -118,82 +124,95 @@ function App() {
   return (
     <div className={`h-screen flex flex-col ${dm ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
       {/* Top bar */}
-      <header className={`flex items-center justify-between h-12 px-3 border-b shrink-0 ${dm ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-md bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-[11px]">GV</span>
+      <header className={`flex items-center justify-between h-14 px-4 border-b shrink-0 backdrop-blur-md ${dm ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
+        <div className="flex items-center gap-4">
+          {/* Logo - AV/autonomous vehicle themed */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-500 flex items-center justify-center shadow-md shadow-blue-500/20">
+              <Car size={16} className="text-white" />
             </div>
-            <span className={`font-semibold text-sm ${dm ? 'text-white' : 'text-slate-900'}`}>GV.AI</span>
+            <span className={`font-bold text-sm tracking-tight ${dm ? 'text-white' : 'text-slate-900'}`}>AutoAnnotate</span>
           </div>
-          <div className={`w-px h-5 ${dm ? 'bg-slate-700' : 'bg-slate-200'}`} />
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${dm ? 'bg-slate-800' : 'bg-slate-100'}`}>
-            <Search size={13} className={dm ? 'text-slate-500' : 'text-slate-400'} />
+
+          <div className={`w-px h-6 ${dm ? 'bg-slate-700' : 'bg-slate-200'}`} />
+
+          {/* Search */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${dm ? 'bg-slate-800/50 hover:bg-slate-800' : 'bg-slate-100 hover:bg-slate-200'}`}>
+            <Search size={14} className={dm ? 'text-slate-500' : 'text-slate-400'} />
             <input
-              placeholder="Search projects, tasks, classes..."
+              placeholder="Search datasets, labels, frames..."
               className={`bg-transparent border-none outline-none text-xs w-56 ${dm ? 'text-white placeholder-slate-500' : 'text-slate-900 placeholder-slate-400'}`}
             />
-            <kbd className={`text-[9px] px-1 py-0.5 rounded ${dm ? 'bg-slate-700 text-slate-500' : 'bg-white text-slate-400'}`}>⌘K</kbd>
+            <kbd className={`text-[9px] px-1.5 py-0.5 rounded-md font-mono ${dm ? 'bg-slate-700 text-slate-500' : 'bg-white text-slate-400 shadow-sm'}`}>⌘K</kbd>
           </div>
         </div>
-        <div className="flex items-center gap-1">
-          <button className={`p-1.5 rounded-md transition-colors relative ${dm ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}>
-            <Bell size={15} />
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-rose-500 rounded-full" />
+
+        <div className="flex items-center gap-1.5">
+          {/* Notifications */}
+          <button className={`p-2 rounded-lg transition-colors relative group ${dm ? 'hover:bg-slate-800 text-slate-500 hover:text-slate-300' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
+            <Bell size={16} />
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full notification-dot" />
           </button>
+
           <div className={`w-px h-5 mx-1 ${dm ? 'bg-slate-700' : 'bg-slate-200'}`} />
-          <button onClick={toggleDark} className={`p-1.5 rounded-md transition-colors ${dm ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}>
-            {dm ? <Sun size={15} /> : <Moon size={15} />}
+
+          {/* Theme toggle */}
+          <button onClick={toggleDark} className={`p-2 rounded-lg transition-colors group ${dm ? 'hover:bg-slate-800 text-slate-500 hover:text-slate-300' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}>
+            {dm ? <Sun size={16} className="group-hover:rotate-12 transition-transform" /> : <Moon size={16} className="group-hover:-rotate-12 transition-transform" />}
           </button>
+
           <div className={`w-px h-5 mx-1 ${dm ? 'bg-slate-700' : 'bg-slate-200'}`} />
-          <div className="flex items-center gap-2 pl-1">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-semibold">
+
+          {/* User */}
+          <div className="flex items-center gap-3 pl-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white text-xs font-bold shadow-md shadow-blue-500/20">
               {userInitials}
             </div>
-            <div className="text-left leading-none">
-              <p className={`text-xs font-medium ${dm ? 'text-white' : 'text-slate-900'}`}>{userName}</p>
+            <div className="hidden md:block text-left leading-tight">
+              <p className={`text-xs font-semibold ${dm ? 'text-white' : 'text-slate-900'}`}>{userName}</p>
               <p className={`text-[10px] ${dm ? 'text-slate-500' : 'text-slate-400'}`}>Owner</p>
             </div>
           </div>
+
           <button
             onClick={signOut}
-            className={`p-1.5 rounded-md transition-colors ml-1 ${dm ? 'hover:bg-slate-800 text-slate-400' : 'hover:bg-slate-100 text-slate-600'}`}
+            className={`p-2 rounded-lg transition-colors ml-1 ${dm ? 'hover:bg-slate-800 text-slate-500 hover:text-slate-300' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
             title="Log out"
           >
-            <LogOut size={15} />
+            <LogOut size={16} />
           </button>
         </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <aside className={`flex flex-col border-r shrink-0 transition-all duration-200 ${sidebarW} ${dm ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
-          <nav className="flex-1 py-2 overflow-y-auto">
+        <aside className={`flex flex-col border-r shrink-0 transition-all duration-300 ${sidebarW} ${dm ? 'bg-slate-900/50 border-slate-800' : 'bg-white/50 border-slate-200'} backdrop-blur-sm`}>
+          <nav className="flex-1 py-3 overflow-y-auto">
             {NAV_GROUPS.map((group) => (
-              <div key={group.label} className="mb-3">
+              <div key={group.label} className="mb-4">
                 {!sidebarCollapsed && (
-                  <p className={`px-3 mb-1 text-[10px] font-semibold uppercase tracking-wider ${dm ? 'text-slate-600' : 'text-slate-400'}`}>
+                  <p className={`px-4 mb-2 text-[10px] font-semibold uppercase tracking-wider ${dm ? 'text-slate-600' : 'text-slate-400'}`}>
                     {group.label}
                   </p>
                 )}
-                {group.items.map((item) => {
+                {group.items.map((item, i) => {
                   const active = view === item.id;
                   return (
                     <button
                       key={item.id}
                       onClick={() => setView(item.id)}
-                      className={`flex items-center gap-2.5 w-full px-3 py-2 text-xs font-medium transition-colors relative ${
+                      className={`flex items-center gap-3 w-full px-3 py-2.5 text-xs font-medium transition-all relative group ${
                         active
-                          ? dm ? 'bg-blue-600/15 text-blue-400' : 'bg-blue-50 text-blue-700'
-                          : dm ? 'text-slate-400 hover:bg-slate-800 hover:text-slate-200' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                      }`}
+                          ? dm ? 'bg-gradient-to-r from-blue-600/15 to-cyan-500/5 text-blue-400' : 'bg-gradient-to-r from-blue-50 to-cyan-50 text-blue-700'
+                          : dm ? 'text-slate-500 hover:bg-slate-800/50 hover:text-slate-300' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                      } mx-2 rounded-lg animate-fade-in stagger-${(i % 4) + 1}`}
                       title={item.label}
                     >
-                      {active && <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-500 rounded-r" />}
-                      <item.icon size={16} className="shrink-0" />
+                      {active && <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-gradient-to-b from-blue-500 to-cyan-500 rounded-r" />}
+                      <item.icon size={16} className={`shrink-0 transition-transform ${active ? '' : 'group-hover:scale-110'}`} strokeWidth={active ? 2 : 1.75} />
                       {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
                       {!sidebarCollapsed && item.badge && (
-                        <span className={`ml-auto px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${dm ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600'}`}>
+                        <span className={`ml-auto px-1.5 py-0.5 rounded-md text-[9px] font-bold ${dm ? 'bg-rose-500/20 text-rose-400' : 'bg-rose-100 text-rose-600'}`}>
                           {item.badge}
                         </span>
                       )}
@@ -203,9 +222,11 @@ function App() {
               </div>
             ))}
           </nav>
+
+          {/* Collapse button */}
           <button
             onClick={toggleSidebar}
-            className={`flex items-center justify-center py-2 border-t transition-colors ${dm ? 'border-slate-800 hover:bg-slate-800 text-slate-500' : 'border-slate-200 hover:bg-slate-100 text-slate-400'}`}
+            className={`flex items-center justify-center py-3 border-t transition-colors ${dm ? 'border-slate-800 hover:bg-slate-800 text-slate-600 hover:text-slate-400' : 'border-slate-200 hover:bg-slate-50 text-slate-400 hover:text-slate-600'}`}
           >
             {sidebarCollapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
           </button>
